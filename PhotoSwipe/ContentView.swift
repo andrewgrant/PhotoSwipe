@@ -17,6 +17,10 @@ struct ContentView: View {
 	@State private var keepList: Set<Int> = []
 	@State private var trashList: Set<Int> = []
 	@State private var showingConfirmation = false
+	@State private var showingDateFilter = false
+	@State private var startDate: Date? = nil
+	@State private var endDate: Date? = nil
+	@State private var filterOption = "All Photos"
 	
 	private var totalPendingActions: Int {
 		favoriteList.count + keepList.count + trashList.count
@@ -90,22 +94,10 @@ struct ContentView: View {
 				.tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
 				.ignoresSafeArea()
 				
+				// Bottom toolbar
 				VStack {
-					HStack {
-						Spacer()
-						
-						Text("\(currentIndex + 1) / \(loadedImages.count)")
-							.foregroundColor(.white)
-							.padding(.horizontal)
-							.padding(.vertical, 8)
-							.background(Color.black.opacity(0.5))
-							.cornerRadius(20)
-					}
-					.padding()
-					
 					Spacer()
 					
-					// Bottom toolbar
 					HStack {
 						Spacer()
 						
@@ -171,6 +163,36 @@ struct ContentView: View {
 					.padding(.bottom, 50)
 				}
 			}
+			
+			// Filter button - always visible and on top
+			VStack {
+				HStack {
+					Button(action: {
+						showingDateFilter = true
+					}) {
+						Image(systemName: "calendar")
+							.font(.system(size: 20))
+							.foregroundColor(.white)
+							.frame(width: 40, height: 40)
+							.background(Color.black.opacity(0.5))
+							.clipShape(Circle())
+					}
+					
+					Spacer()
+					
+					if !loadedImages.isEmpty {
+						Text("\(currentIndex + 1) / \(loadedImages.count)")
+							.foregroundColor(.white)
+							.padding(.horizontal)
+							.padding(.vertical, 8)
+							.background(Color.black.opacity(0.5))
+							.cornerRadius(20)
+					}
+				}
+				.padding()
+				
+				Spacer()
+			}
 		}
 		.onChange(of: authorizationStatus) { oldValue, newValue in
 			if newValue == .authorized || newValue == .limited {
@@ -185,6 +207,46 @@ struct ContentView: View {
 		} message: {
 			Text(confirmationMessage)
 		}
+		.sheet(isPresented: $showingDateFilter) {
+			NavigationView {
+				Form {
+					Section(header: Text("Filter Options")) {
+						Picker("Filter", selection: $filterOption) {
+							Text("All Photos").tag("All Photos")
+							Text("Last 30 Days").tag("Last 30 Days")
+							Text("Custom Date Range").tag("Custom")
+						}
+						.pickerStyle(SegmentedPickerStyle())
+						
+						if filterOption == "Custom" {
+							DatePicker("Start Date", selection: Binding(
+								get: { startDate ?? Date() },
+								set: { startDate = $0 }
+							), displayedComponents: .date)
+							DatePicker("End Date", selection: Binding(
+								get: { endDate ?? Date() },
+								set: { endDate = $0 }
+							), displayedComponents: .date)
+						}
+					}
+				}
+				.navigationTitle("Filter Photos")
+				.navigationBarTitleDisplayMode(.inline)
+				.toolbar {
+					ToolbarItem(placement: .navigationBarLeading) {
+						Button("Cancel") {
+							showingDateFilter = false
+						}
+					}
+					ToolbarItem(placement: .navigationBarTrailing) {
+						Button("Apply") {
+							applyFilter()
+							showingDateFilter = false
+						}
+					}
+				}
+			}
+		}
 	}
 	
 	private func requestPhotoLibraryAccess() {
@@ -195,9 +257,60 @@ struct ContentView: View {
 		}
 	}
 	
+	private func applyFilter() {
+		switch filterOption {
+		case "All Photos":
+			startDate = nil
+			endDate = nil
+		case "Last 30 Days":
+			let calendar = Calendar.current
+			startDate = calendar.date(byAdding: .day, value: -30, to: Date())
+			endDate = Date()
+		case "Custom":
+			// Use the selected dates - ensure they are not nil
+			if startDate == nil {
+				startDate = Date()
+			}
+			if endDate == nil {
+				endDate = Date()
+			}
+		default:
+			startDate = nil
+			endDate = nil
+		}
+		
+		print("Filter applied: \(filterOption), start: \(startDate?.description ?? "nil"), end: \(endDate?.description ?? "nil")")
+		resetAndReload()
+	}
+	
+	private func resetAndReload() {
+		// Clear all pending actions
+		favoriteList.removeAll()
+		keepList.removeAll()
+		trashList.removeAll()
+		
+		// Reset current index
+		currentIndex = 0
+		
+		// Reload images based on current filter
+		fetchAllPhotos()
+	}
+	
 	private func fetchAllPhotos() {
 		let fetchOptions = PHFetchOptions()
 		fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+		
+		// Add date filter predicate only if dates are set
+		if let startDate = startDate, let endDate = endDate {
+			let calendar = Calendar.current
+			let startOfStartDate = calendar.startOfDay(for: startDate)
+			let endOfEndDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) ?? endDate
+			
+			fetchOptions.predicate = NSPredicate(format: "creationDate >= %@ AND creationDate < %@", startOfStartDate as NSDate, endOfEndDate as NSDate)
+			print("Applied date filter: \(startOfStartDate) to \(endOfEndDate)")
+		} else {
+			print("No date filter applied - showing all photos")
+		}
 		
 		let fetchResult = PHAsset.fetchAssets(with: .image, options: fetchOptions)
 		
@@ -206,6 +319,7 @@ struct ContentView: View {
 			allPhotos.append(asset)
 		}
 		
+		print("Fetched \(allPhotos.count) photos")
 		loadImagesFromAssets()
 	}
 	

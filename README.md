@@ -9,6 +9,8 @@ A SwiftUI-based iOS photo browsing application that allows users to browse their
 - Batch photo management (favorite, keep, delete)
 - Confirmation dialog for changes
 - Responsive toolbar with SF Symbols icons
+- Date filtering (All Photos, Last 30 Days, Custom Date Range)
+- Always-visible filter button
 
 ## Prompts
 
@@ -28,6 +30,13 @@ This app was built using the following prompts:
 12. "When the apply button is clicked it should show a confirmation dialog. The confirmation dialog should ask the user to confirm they want to make changes to their photo library and list the number of favorites and deletions that will be made"
 13. "update the git ignore to exclude .DS_Store files"
 14. "add a section to README.md called 'Prompts', and list all prompts I've used so far for this app"
+15. "At the top left add a filter button. This button should bring up a filter that allows the user to select a date range that will be used to filter the photos shown in the main view"
+16. "the filter button should be there at all times, not just when images are loaded. By default the filter should show all images. It should have a predefined option for the last 30 days."
+17. "nothing happens when I tap on the filter button"
+18. "add a reset function that clears all pending actions. It should reload images based on the current filter. Call this reset function whenever the filter options have changed"
+19. "the photos aren't being filtered"
+20. "maybe I made a mistake. Filtering seems to be working now"
+21. "update the readme with prompts I've used"
 
 ## Requirements
 
