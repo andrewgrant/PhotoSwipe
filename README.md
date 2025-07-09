@@ -37,6 +37,14 @@ This app was built using the following prompts:
 19. "the photos aren't being filtered"
 20. "maybe I made a mistake. Filtering seems to be working now"
 21. "update the readme with prompts I've used"
+22. "if a photo is already favorited in the photo library then update the toolbar image and state accordingly when it is first shown"
+23. "the photos in my app are not updating to reflect changes in the photo library. E.g. after my app is running, if a photo is favorited outside of the app, my app does not update to show the new state"
+24. "I am getting the following error - ContentView.swift:420:52 'weak' may only be applied to class and class-bound protocol types, not 'ContentView'"
+25. "the app crashes on startup when initializing ContentView"
+26. "still crashing"
+27. "ok, it's working again. The issue may have been an invalid breakpoint due to source changes. Please add back the observer for changes to the photo library"
+28. "the weak error is back"
+29. "update prompts in the readme"
 
 ## Requirements
 

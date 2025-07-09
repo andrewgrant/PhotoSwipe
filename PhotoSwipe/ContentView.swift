@@ -8,6 +8,16 @@
 import SwiftUI
 import Photos
 
+class PhotoLibraryObserver: NSObject, PHPhotoLibraryChangeObserver {
+	var refreshCallback: (() -> Void)?
+	
+	func photoLibraryDidChange(_ changeInstance: PHChange) {
+		DispatchQueue.main.async {
+			self.refreshCallback?()
+		}
+	}
+}
+
 struct ContentView: View {
 	@State private var allPhotos: [PHAsset] = []
 	@State private var loadedImages: [UIImage] = []
@@ -21,9 +31,24 @@ struct ContentView: View {
 	@State private var startDate: Date? = nil
 	@State private var endDate: Date? = nil
 	@State private var filterOption = "All Photos"
+	@State private var photoLibraryObserver: PhotoLibraryObserver?
 	
 	private var totalPendingActions: Int {
 		favoriteList.count + keepList.count + trashList.count
+	}
+	
+	private var currentPhotoIsFavorited: Bool {
+		guard currentIndex < allPhotos.count else { return false }
+		let asset = allPhotos[currentIndex]
+		return asset.isFavorite
+	}
+	
+	private var shouldShowFavoriteAsFilled: Bool {
+		// Show filled if either:
+		// 1. The photo is already favorited in the library AND not in the toggle list
+		// 2. The photo is not favorited in the library but IS in the toggle list
+		let isInToggleList = favoriteList.contains(currentIndex)
+		return currentPhotoIsFavorited != isInToggleList
 	}
 	
 	private var confirmationMessage: String {
@@ -104,7 +129,7 @@ struct ContentView: View {
 						Button(action: {
 							toggleFavorite()
 						}) {
-							Image(systemName: favoriteList.contains(currentIndex) ? "heart.fill" : "heart")
+							Image(systemName: shouldShowFavoriteAsFilled ? "heart.fill" : "heart")
 								.font(.system(size: 24))
 								.foregroundColor(.white)
 								.frame(width: 50, height: 50)
@@ -197,7 +222,14 @@ struct ContentView: View {
 		.onChange(of: authorizationStatus) { oldValue, newValue in
 			if newValue == .authorized || newValue == .limited {
 				fetchAllPhotos()
+				setupPhotoLibraryObserver()
 			}
+		}
+		.onAppear {
+			setupPhotoLibraryObserver()
+		}
+		.onDisappear {
+			removePhotoLibraryObserver()
 		}
 		.confirmationDialog("Confirm Changes", isPresented: $showingConfirmation) {
 			Button("Apply Changes", role: .destructive) {
@@ -377,6 +409,28 @@ struct ContentView: View {
 			trashList.remove(currentIndex)
 		} else {
 			trashList.insert(currentIndex)
+		}
+	}
+	
+	
+	private func setupPhotoLibraryObserver() {
+		guard photoLibraryObserver == nil else { return }
+		
+		let observer = PhotoLibraryObserver()
+		observer.refreshCallback = {
+			DispatchQueue.main.async {
+				self.fetchAllPhotos()
+			}
+		}
+		
+		PHPhotoLibrary.shared().register(observer)
+		photoLibraryObserver = observer
+	}
+	
+	private func removePhotoLibraryObserver() {
+		if let observer = photoLibraryObserver {
+			PHPhotoLibrary.shared().unregisterChangeObserver(observer)
+			photoLibraryObserver = nil
 		}
 	}
 	
